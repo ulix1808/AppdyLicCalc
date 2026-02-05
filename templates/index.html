@@ -58,7 +58,7 @@
     <h2>Ingreso manual o edición de datos</h2>
 
     <h3>Tabla de aplicaciones</h3>
-    <p class="note">APM: 1 CPU core = 1 licencia. RUM Browser: sesiones/usuarios al mes → pageviews. Secure App: activar para contar licencias Cisco Secure Application (1 CPU core = 1 licencia).</p>
+    <p class="note">APM: 1 CPU core = 1 licencia. RUM Browser: sesiones al mes → pageviews. Secure App: activar para contar licencias Cisco Secure Application (1 CPU core = 1 licencia).</p>
     <table id="tblApps">
       <thead>
         <tr>
@@ -69,7 +69,7 @@
           <th>Cores/nodo</th>
           <th>¿Web?</th>
           <th title="Cisco Secure Application">Secure App</th>
-          <th>Sesiones/usuarios/mes</th>
+          <th>Sesiones/mes</th>
           <th></th>
         </tr>
       </thead>
@@ -113,7 +113,7 @@
     <button class="btn btn-secondary add-row" id="addSap">+ Añadir SAP</button>
 
     <h3>Microservicios (K8s/OpenShift)</h3>
-    <p class="note">APM: nodos del cluster × cores por nodo (igual que aplicaciones). RUM: sesiones/usuarios al mes.</p>
+    <p class="note">APM: nodos del cluster × cores por nodo (igual que aplicaciones). RUM: sesiones al mes.</p>
     <table id="tblMicro">
       <thead>
         <tr>
@@ -123,7 +123,7 @@
           <th># Nodos</th>
           <th>Cores/nodo</th>
           <th>¿Web?</th>
-          <th>Sesiones/usuarios/mes</th>
+          <th>Sesiones/mes</th>
           <th></th>
         </tr>
       </thead>
@@ -317,7 +317,7 @@
         { html: `<td><input type="number" name="cores_per_node" min="1" value="${data.cores_per_node || 4}" style="width:60px"></td>` },
         { html: `<td><select name="is_web_app"><option value="Si" ${(data.is_web_app === 'Si') ? 'selected' : ''}>Sí</option><option value="No" ${(data.is_web_app === 'No') ? 'selected' : ''}>No</option></select></td>` },
         { html: `<td><input type="checkbox" name="has_secure_app" value="Si" ${secureChecked} title="Cisco Secure Application"></td>` },
-        { html: `<td><input type="text" name="sessions_users_per_month" placeholder="2000 usuarios" value="${data.sessions_users_per_month ?? ''}"></td>` },
+        { html: `<td><input type="text" name="sessions_users_per_month" placeholder="2000 sesiones" value="${data.sessions_users_per_month ?? ''}"></td>` },
         { html: `<td><button type="button" class="btn btn-secondary remove-row">Eliminar</button></td>` },
       ]);
     }
@@ -521,7 +521,7 @@
     };
 
     // Inicializar con datos por defecto
-    addAppRow({ name: 'Ejemplo 1', server: 'Jboss 7', type: 'Java', nodes: 4, cores_per_node: 8, is_web_app: 'Si', sessions_users_per_month: '2000 usuarios' });
+    addAppRow({ name: 'Ejemplo 1', server: 'Jboss 7', type: 'Java', nodes: 4, cores_per_node: 8, is_web_app: 'Si', sessions_users_per_month: '2000 sesiones' });
     addDbRow({ name: 'Oracle', version: '11G', cores_per_node: 12, nodes: 2, os: 'RHEL 7', related_app: 'Ejemplo-1' });
     addDbRow({ name: 'SQL Server', version: '2016', cores_per_node: 8, nodes: 1, os: 'Windows Server 2016', related_app: 'Ejemplo 2' });
     addTERow({ test_type: 'Red', interval_minutes: 5, num_agents: 3, agent_type: 'ENTERPRISE', timeout_seconds: 5 });

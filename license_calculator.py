@@ -231,7 +231,7 @@ def calculate_licenses(
     # === RUM Browser ===
     # Sesiones/usuarios conectados al mes → asumimos 1 usuario ≈ 10-50 pageviews/mes (promedio 20)
     # Ajustable según el caso de uso
-    PAGEVIEWS_PER_USER_PER_MONTH = 20  # Promedio conservador
+    PAGEVIEWS_PER_USER_PER_MONTH = 100
 
     rum_pageviews = 0
     for a in applications:

@@ -3,16 +3,10 @@ AppDynamics License Calculator - Web App
 Servidor Flask para la calculadora de licencias.
 """
 
-import json
-import os
-from pathlib import Path
-
 from flask import Flask, render_template, request, jsonify
-from werkzeug.utils import secure_filename
 
 from license_calculator import (
     calculate_licenses,
-    parse_excel_anexo_aplicaciones,
     Application,
     Database,
     SAPApplication,
@@ -24,7 +18,6 @@ from license_calculator import (
 from thousandeyes_calculator import (
     ThousandEyesTest,
     calculate_thousandeyes,
-    parse_excel_thousandeyes,
     get_test_types_for_ui,
     HELP_INTERVAL,
     HELP_AGENTS,
@@ -34,14 +27,6 @@ from thousandeyes_calculator import (
 )
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
-UPLOAD_FOLDER = Path(__file__).parent / "uploads"
-UPLOAD_FOLDER.mkdir(exist_ok=True)
-app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)
-
-
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ("xlsx", "xls")
 
 
 @app.route("/")
@@ -182,106 +167,6 @@ def api_calculate():
             },
             "details": result.details,
         })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
-
-
-@app.route("/api/parse-excel", methods=["POST"])
-def api_parse_excel():
-    """Parsea un archivo Excel (Anexo Aplicaciones) y devuelve los datos extraídos."""
-    if "file" not in request.files:
-        return jsonify({"success": False, "error": "No se envió ningún archivo"}), 400
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"success": False, "error": "No se seleccionó archivo"}), 400
-    if not allowed_file(file.filename):
-        return jsonify({"success": False, "error": "Solo se permiten archivos .xlsx o .xls"}), 400
-
-    try:
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(filepath)
-        parsed = parse_excel_anexo_aplicaciones(filepath)
-        te_tests = parse_excel_thousandeyes(filepath)
-        os.remove(filepath)
-
-        # Convertir a estructuras serializables para el frontend
-        def to_dict(obj):
-            if hasattr(obj, "__dict__"):
-                return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
-            return obj
-
-        data = {
-            "applications": [
-                {
-                    "name": a.name,
-                    "server": a.server,
-                    "type": a.app_type,
-                    "nodes": a.nodes,
-                    "cores_per_node": a.cores_per_node,
-                    "is_web_app": "Si" if a.is_web_app else "No",
-                    "has_secure_app": "Si" if a.has_secure_app else "No",
-                    "sessions_users_per_month": a.sessions_users_per_month,
-                    "notes": a.notes,
-                }
-                for a in parsed["applications"]
-            ],
-            "databases": [
-                {
-                    "name": d.name,
-                    "version": d.version,
-                    "cores_per_node": d.cores_per_node,
-                    "nodes": d.nodes,
-                    "os": d.os,
-                    "related_app": d.related_app,
-                }
-                for d in parsed["databases"]
-            ],
-            "sap_apps": [
-                {
-                    "name": s.name,
-                    "server": s.server,
-                    "type": s.app_type,
-                    "nodes": s.nodes,
-                    "cores_str": s.cores_str,
-                }
-                for s in parsed["sap_apps"]
-            ],
-            "microservices": [
-                {
-                    "name": m.name,
-                    "server": m.server,
-                    "type": m.app_type,
-                    "nodes": m.nodes,
-                    "cores_per_node": m.cores_per_node,
-                    "is_web_app": "Si" if m.is_web_app else "No",
-                    "sessions_users_per_month": m.sessions_users_per_month,
-                }
-                for m in parsed["microservices"]
-            ],
-            "mobile_apps": [
-                {
-                    "name": ma.name,
-                    "type": ma.app_type,
-                    "platform": ma.platform,
-                    "ide": ma.ide,
-                    "active_agents_per_month": ma.active_agents_per_month,
-                }
-                for ma in parsed["mobile_apps"]
-            ],
-            "server_visibility_only": [],
-            "thousandeyes_tests": [
-                {
-                    "test_type": t.test_type,
-                    "interval_minutes": t.interval_minutes,
-                    "num_agents": t.num_agents,
-                    "agent_type": t.agent_type,
-                    "timeout_seconds": t.timeout_seconds,
-                }
-                for t in te_tests
-            ],
-        }
-        return jsonify({"success": True, "data": data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 

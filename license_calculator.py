@@ -158,8 +158,8 @@ class LicenseResult:
 
     @property
     def total_infrastructure_cores(self) -> int:
-        """Cores totales para licenciamiento Infrastructure (APM + DB + SAP + Server Visibility Only + Secure App)"""
-        return self.apm_cores + self.database_cores + self.sap_cores + self.microservices_containers + self.server_visibility_only_cores + self.secure_app_cores
+        """Cores totales para licenciamiento Infrastructure (APM + DB + SAP + Server Visibility Only). Secure App se reporta por separado."""
+        return self.apm_cores + self.database_cores + self.sap_cores + self.microservices_containers + self.server_visibility_only_cores
 
 
 def parse_sessions_or_users(value) -> Optional[int]:

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AppDynamics - Calculadora de Licencias</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+  <style>
+    :root {
+      --appd-blue: #0066cc;
+      --appd-dark: #004080;
+      --accent: #00a878;
+    }
+    body { max-width: 1100px; margin: 0 auto; padding: 2rem; font-family: 'Segoe UI', system-ui, sans-serif; }
+    h1 { color: var(--appd-blue); border-bottom: 2px solid var(--appd-blue); padding-bottom: 0.5rem; }
+    h2 { color: var(--appd-dark); margin-top: 2rem; font-size: 1.1rem; }
+    .upload-zone { border: 2px dashed #ccc; padding: 1.5rem; text-align: center; margin: 1rem 0; border-radius: 8px; }
+    .upload-zone:hover { border-color: var(--appd-blue); background: #f8fafc; }
+    table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9rem; }
+    th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    th { background: #f1f5f9; }
+    input, select { padding: 0.4rem; }
+    .btn { padding: 0.5rem 1rem; cursor: pointer; border: none; border-radius: 6px; font-weight: 600; }
+    .btn-primary { background: var(--appd-blue); color: white; }
+    .btn-primary:hover { background: var(--appd-dark); }
+    .btn-secondary { background: #64748b; color: white; }
+    .btn-secondary:hover { background: #475569; }
+    .results { background: #f8fafc; border-radius: 8px; padding: 1.5rem; margin-top: 2rem; }
+    .results h3 { color: var(--appd-dark); margin-top: 0; }
+    .metric { display: inline-block; margin: 0.5rem 1rem 0.5rem 0; padding: 0.75rem 1rem; background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .metric-label { font-size: 0.8rem; color: #64748b; }
+    .metric-value { font-size: 1.4rem; font-weight: 700; color: var(--appd-blue); }
+    .section { margin-bottom: 1.5rem; }
+    .add-row { margin-top: 0.5rem; }
+    .hidden { display: none; }
+    .note { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>AppDynamics - Calculadora de Licencias</h1>
+  <p>Calcula licencias APM, Database, Server Visibility y RUM (Browser/Mobile) según el modelo de AppDynamics.</p>
+
+  <div class="section">
+    <h2>📁 Cargar desde Excel</h2>
+    <div class="upload-zone" id="uploadZone">
+      <p>Arrastra o selecciona el archivo Excel</p>
+      <input type="file" id="excelFile" accept=".xlsx,.xls" style="margin-top: 0.5rem;">
+    </div>
+    <p class="note">
+      <strong>Anexo Aplicaciones:</strong> aplicaciones, bases de datos, SAP, microservicios y apps móviles.<br>
+      <strong>ThousandeyesV1:</strong> pruebas ThousandEyes (tipo, intervalo, agentes, tipo agente, timeout).
+    </p>
+  </div>
+
+  <hr>
+
+  <div class="section">
+    <h2>Ingreso manual o edición de datos</h2>
+
+    <h3>Tabla de aplicaciones</h3>
+    <p class="note">APM: 1 CPU core = 1 licencia. RUM Browser: sesiones/usuarios al mes → pageviews. Secure App: activar para contar licencias Cisco Secure Application (1 CPU core = 1 licencia).</p>
+    <table id="tblApps">
+      <thead>
+        <tr>
+          <th>Aplicación</th>
+          <th>Servidor</th>
+          <th>Tipo</th>
+          <th># Nodos</th>
+          <th>Cores/nodo</th>
+          <th>¿Web?</th>
+          <th title="Cisco Secure Application">Secure App</th>
+          <th>Sesiones/usuarios/mes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblAppsBody"></tbody>
+    </table>
+    <button class="btn btn-secondary add-row" id="addApp">+ Añadir aplicación</button>
+
+    <h3>Tabla de bases de datos</h3>
+    <p class="note">Database: 1 CPU core = 1 licencia (AppDynamics SaaS).</p>
+    <table id="tblDbs">
+      <thead>
+        <tr>
+          <th>DB</th>
+          <th>Versión</th>
+          <th>Cores/nodo</th>
+          <th># Nodos</th>
+          <th>SO</th>
+          <th>App relacionada</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblDbsBody"></tbody>
+    </table>
+    <button class="btn btn-secondary add-row" id="addDb">+ Añadir base de datos</button>
+
+    <h3>Tabla SAP (si aplica)</h3>
+    <p class="note">Ej: "ASCS 2 VCPU, Primario APP Server 16 VCPU".</p>
+    <table id="tblSap">
+      <thead>
+        <tr>
+          <th>Aplicación</th>
+          <th>Servidor</th>
+          <th>Tipo</th>
+          <th># Nodos</th>
+          <th>Cores (VCPU)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblSapBody"></tbody>
+    </table>
+    <button class="btn btn-secondary add-row" id="addSap">+ Añadir SAP</button>
+
+    <h3>Microservicios (K8s/OpenShift)</h3>
+    <p class="note">APM: nodos del cluster × cores por nodo (igual que aplicaciones). RUM: sesiones/usuarios al mes.</p>
+    <table id="tblMicro">
+      <thead>
+        <tr>
+          <th>Microservicio</th>
+          <th>Servidor</th>
+          <th>Tipo</th>
+          <th># Nodos</th>
+          <th>Cores/nodo</th>
+          <th>¿Web?</th>
+          <th>Sesiones/usuarios/mes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblMicroBody"></tbody>
+    </table>
+    <button class="btn btn-secondary add-row" id="addMicro">+ Añadir microservicio</button>
+
+    <h3>Server Visibility solo (sin APM ni Database)</h3>
+    <p class="note">Servidores que solo requieren monitoreo de infraestructura (CPU, memoria, disco). 1 CPU core = 1 licencia.</p>
+    <table id="tblSVOnly">
+      <thead>
+        <tr>
+          <th>Servidor / Grupo</th>
+          <th># Nodos</th>
+          <th>Cores/nodo</th>
+          <th>SO</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblSVOnlyBody"></tbody>
+    </table>
+    <button class="btn btn-secondary add-row" id="addSVOnly">+ Añadir servidor</button>
+
+    <h3>Aplicaciones móviles</h3>
+    <p class="note">RUM Mobile: 5000 Active Agents/unidad. 1 Active Agent ≈ app instalada y lanzada al mes.</p>
+    <table id="tblMobile">
+      <thead>
+        <tr>
+          <th>APP</th>
+          <th>Tipo</th>
+          <th>Plataforma</th>
+          <th>IDE</th>
+          <th>Active Agents/mes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblMobileBody"></tbody>
+    </table>
+    <button class="btn btn-secondary add-row" id="addMobile">+ Añadir app móvil</button>
+
+    <div style="margin-top: 2rem;">
+      <button class="btn btn-primary" id="btnCalculate">Calcular licencias AppDynamics</button>
+    </div>
+  </div>
+
+  <hr>
+
+  <div class="section" id="teSection">
+    <h2>ThousandEyes - Calculadora de unidades</h2>
+    <p>Calcula unidades de consumo para pruebas Cloud/Enterprise según tipo, intervalo, agentes y timeout.</p>
+
+    <details class="section" style="margin: 1rem 0;">
+      <summary style="cursor:pointer; font-weight:600;">¿Por qué importa cada columna?</summary>
+      <div style="margin-top: 1rem; padding: 1rem; background: #f1f5f9; border-radius: 8px; font-size: 0.9rem;">
+        <p><strong>Tipo de prueba:</strong> Define el alcance de monitoreo (Red, Web, DNS, Voice). Cada tipo tiene un milli-unit cost distinto y algunos usan timeout.</p>
+        <p><strong>Intervalo (min):</strong> {{ te_help_interval }}</p>
+        <p><strong>Número de agentes:</strong> {{ te_help_agents }}</p>
+        <p><strong>Tipo de agente:</strong> {{ te_help_agent_type }}</p>
+        <p><strong>Timeout (seg):</strong> {{ te_help_timeout }}</p>
+      </div>
+    </details>
+
+    <details class="section" style="margin: 1rem 0;">
+      <summary style="cursor:pointer; font-weight:600;">Alcance de cada tipo de prueba</summary>
+      <div style="margin-top: 1rem; padding: 1rem; background: #f1f5f9; border-radius: 8px; font-size: 0.85rem;">
+        <ul style="line-height: 1.6;">
+          <li><strong>Red (Network Agent-to-Server/Agent-to-Agent):</strong> Conectividad, pérdida, latencia, jitter. Incluye BGP del objetivo.</li>
+          <li><strong>HTTP Server / Page Load / Transaction:</strong> Disponibilidad y tiempo de respuesta web. Usa timeout.</li>
+          <li><strong>DNS Server / Trace / DNSSEC:</strong> Resolución DNS, traza, validación DNSSEC.</li>
+          <li><strong>BGP:</strong> Propagación de prefijos, hijacks, route flaps. Usa BGP monitors (no agentes).</li>
+          <li><strong>Voice (SIP / RTP Stream):</strong> VoIP, MOS, latencia. Usa timeout/duración.</li>
+        </ul>
+      </div>
+    </details>
+
+    <h3>Pruebas ThousandEyes</h3>
+    <table id="tblTE">
+      <thead>
+        <tr>
+          <th>Tipo de prueba</th>
+          <th title="Cada cuántos minutos se ejecuta">Intervalo (min)</th>
+          <th title="Agentes que ejecutan la prueba"># Agentes</th>
+          <th title="Cloud o Enterprise">Tipo agente</th>
+          <th title="Solo Web/Voice (5-180 seg)">Timeout (seg)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblTEBody"></tbody>
+    </table>
+    <button class="btn btn-secondary add-row" id="addTE">+ Añadir prueba</button>
+    <div style="margin-top: 1rem;">
+      <button class="btn btn-primary" id="btnCalculateTE">Calcular unidades ThousandEyes</button>
+    </div>
+  </div>
+
+  <div id="resultsTE" class="results hidden">
+    <h3>Resultado ThousandEyes</h3>
+    <p class="note">Proyección sobre 31 días (período típico de facturación).</p>
+    <div>
+      <span class="metric">
+        <span class="metric-label">Total unidades</span>
+        <span class="metric-value" id="teTotalUnits">0</span>
+      </span>
+    </div>
+    <div id="teTestsDetail" style="margin-top: 1rem;"></div>
+  </div>
+
+  <div id="results" class="results hidden">
+    <h3>Resultado del cálculo</h3>
+    <div>
+      <span class="metric">
+        <span class="metric-label">APM (Aplicaciones)</span>
+        <span class="metric-value" id="apmCores">0</span> CPU cores
+      </span>
+      <span class="metric">
+        <span class="metric-label">Database</span>
+        <span class="metric-value" id="dbCores">0</span> CPU cores
+      </span>
+      <span class="metric">
+        <span class="metric-label">SAP</span>
+        <span class="metric-value" id="sapCores">0</span> CPU cores
+      </span>
+      <span class="metric">
+        <span class="metric-label">Microservicios (APM)</span>
+        <span class="metric-value" id="microCores">0</span> CPU cores
+      </span>
+      <span class="metric">
+        <span class="metric-label">Server Visibility (incl.)</span>
+        <span class="metric-value" id="svInstances">0</span> instancias
+      </span>
+      <span class="metric">
+        <span class="metric-label">Server Visibility solo</span>
+        <span class="metric-value" id="svOnlyCores">0</span> CPU cores
+      </span>
+      <span class="metric">
+        <span class="metric-label">Secure App</span>
+        <span class="metric-value" id="secureAppCores">0</span> CPU cores
+      </span>
+      <span class="metric">
+        <span class="metric-label">Total Infrastructure</span>
+        <span class="metric-value" id="totalCores">0</span> cores
+      </span>
+    </div>
+    <div style="margin-top: 1rem;">
+      <h4>RUM Browser</h4>
+      <span class="metric">
+        <span class="metric-label">Pageviews/mes</span>
+        <span class="metric-value" id="rumPageviewsMonth">0</span>
+      </span>
+      <span class="metric">
+        <span class="metric-label">Pageviews/año</span>
+        <span class="metric-value" id="rumPageviewsYear">0</span>
+      </span>
+      <span class="metric">
+        <span class="metric-label">Unidades (10M/año)</span>
+        <span class="metric-value" id="rumBrowserUnits">0</span>
+      </span>
+    </div>
+    <div style="margin-top: 1rem;">
+      <h4>RUM Mobile</h4>
+      <span class="metric">
+        <span class="metric-label">Active Agents/mes</span>
+        <span class="metric-value" id="rumMobileAgents">0</span>
+      </span>
+      <span class="metric">
+        <span class="metric-label">Unidades (5K/unidad)</span>
+        <span class="metric-value" id="rumMobileUnits">0</span>
+      </span>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+
+    function addRow(tableBodyId, cols) {
+      const tbody = document.getElementById(tableBodyId);
+      const tr = document.createElement('tr');
+      tr.innerHTML = cols.map(c => c.html).join('');
+      const removeBtn = tr.querySelector('.remove-row');
+      if (removeBtn) removeBtn.onclick = () => tr.remove();
+      tbody.appendChild(tr);
+    }
+
+    function addAppRow(data = {}) {
+      const secureChecked = data.has_secure_app === 'Si' ? 'checked' : '';
+      addRow('tblAppsBody', [
+        { html: `<td><input type="text" name="name" placeholder="Ej: MiApp" value="${data.name || ''}"></td>` },
+        { html: `<td><input type="text" name="server" placeholder="Jboss 7" value="${data.server || ''}"></td>` },
+        { html: `<td><input type="text" name="type" placeholder="Java" value="${data.type || ''}"></td>` },
+        { html: `<td><input type="number" name="nodes" min="1" value="${data.nodes || 1}" style="width:60px"></td>` },
+        { html: `<td><input type="number" name="cores_per_node" min="1" value="${data.cores_per_node || 4}" style="width:60px"></td>` },
+        { html: `<td><select name="is_web_app"><option value="Si" ${(data.is_web_app === 'Si') ? 'selected' : ''}>Sí</option><option value="No" ${(data.is_web_app === 'No') ? 'selected' : ''}>No</option></select></td>` },
+        { html: `<td><input type="checkbox" name="has_secure_app" value="Si" ${secureChecked} title="Cisco Secure Application"></td>` },
+        { html: `<td><input type="text" name="sessions_users_per_month" placeholder="2000 usuarios" value="${data.sessions_users_per_month ?? ''}"></td>` },
+        { html: `<td><button type="button" class="btn btn-secondary remove-row">Eliminar</button></td>` },
+      ]);
+    }
+
+    function addDbRow(data = {}) {
+      addRow('tblDbsBody', [
+        { html: `<td><input type="text" name="name" placeholder="Oracle" value="${data.name || ''}"></td>` },
+        { html: `<td><input type="text" name="version" placeholder="11G" value="${data.version || ''}"></td>` },
+        { html: `<td><input type="number" name="cores_per_node" min="1" value="${data.cores_per_node || 4}" style="width:60px"></td>` },
+        { html: `<td><input type="number" name="nodes" min="1" value="${data.nodes || 1}" style="width:60px"></td>` },
+        { html: `<td><input type="text" name="os" placeholder="RHEL 7" value="${data.os || ''}"></td>` },
+        { html: `<td><input type="text" name="related_app" placeholder="MiApp" value="${data.related_app || ''}"></td>` },
+        { html: `<td><button type="button" class="btn btn-secondary remove-row">Eliminar</button></td>` },
+      ]);
+    }
+
+    function addSapRow(data = {}) {
+      addRow('tblSapBody', [
+        { html: `<td><input type="text" name="name" placeholder="Ejemplo" value="${data.name || ''}"></td>` },
+        { html: `<td><input type="text" name="server" value="${data.server || ''}"></td>` },
+        { html: `<td><input type="text" name="type" value="${data.type || ''}"></td>` },
+        { html: `<td><input type="number" name="nodes" min="1" value="${data.nodes || 1}" style="width:60px"></td>` },
+        { html: `<td><input type="text" name="cores_str" placeholder="ASCS 2 VCPU, APP 16 VCPU" value="${data.cores_str || ''}"></td>` },
+        { html: `<td><button type="button" class="btn btn-secondary remove-row">Eliminar</button></td>` },
+      ]);
+    }
+
+    function addMicroRow(data = {}) {
+      addRow('tblMicroBody', [
+        { html: `<td><input type="text" name="name" placeholder="api-gateway" value="${data.name || ''}"></td>` },
+        { html: `<td><input type="text" name="server" value="${data.server || ''}"></td>` },
+        { html: `<td><input type="text" name="type" placeholder="Java" value="${data.type || ''}"></td>` },
+        { html: `<td><input type="number" name="nodes" min="1" value="${data.nodes ?? 1}" style="width:60px"></td>` },
+        { html: `<td><input type="number" name="cores_per_node" min="1" value="${data.cores_per_node ?? 4}" style="width:60px"></td>` },
+        { html: `<td><select name="is_web_app"><option value="Si" ${(data.is_web_app === 'Si') ? 'selected' : ''}>Sí</option><option value="No" ${(data.is_web_app === 'No') ? 'selected' : ''}>No</option></select></td>` },
+        { html: `<td><input type="text" name="sessions_users_per_month" placeholder="50000" value="${data.sessions_users_per_month ?? ''}"></td>` },
+        { html: `<td><button type="button" class="btn btn-secondary remove-row">Eliminar</button></td>` },
+      ]);
+    }
+
+    function addSVOnlyRow(data = {}) {
+      addRow('tblSVOnlyBody', [
+        { html: `<td><input type="text" name="name" placeholder="servidor-backup" value="${data.name || ''}"></td>` },
+        { html: `<td><input type="number" name="nodes" min="1" value="${data.nodes ?? 1}" style="width:60px"></td>` },
+        { html: `<td><input type="number" name="cores_per_node" min="1" value="${data.cores_per_node ?? 4}" style="width:60px"></td>` },
+        { html: `<td><input type="text" name="os" placeholder="RHEL 7" value="${data.os || ''}"></td>` },
+        { html: `<td><button type="button" class="btn btn-secondary remove-row">Eliminar</button></td>` },
+      ]);
+    }
+
+    function addMobileRow(data = {}) {
+      addRow('tblMobileBody', [
+        { html: `<td><input type="text" name="name" placeholder="MiApp Móvil" value="${data.name || ''}"></td>` },
+        { html: `<td><input type="text" name="type" value="${data.type || ''}"></td>` },
+        { html: `<td><input type="text" name="platform" placeholder="iOS/Android" value="${data.platform || ''}"></td>` },
+        { html: `<td><input type="text" name="ide" value="${data.ide || ''}"></td>` },
+        { html: `<td><input type="number" name="active_agents_per_month" min="0" placeholder="5000" value="${data.active_agents_per_month ?? ''}"></td>` },
+        { html: `<td><button type="button" class="btn btn-secondary remove-row">Eliminar</button></td>` },
+      ]);
+    }
+
+    function collectData(tableBodyId, fieldNames) {
+      const tbody = document.getElementById(tableBodyId);
+      const rows = tbody.querySelectorAll('tr');
+      return Array.from(rows).map(tr => {
+        const obj = {};
+        fieldNames.forEach(name => {
+          const el = tr.querySelector(`[name="${name}"]`);
+          if (!el) obj[name] = null;
+          else if (el.type === 'checkbox') obj[name] = el.checked ? (el.value || 'Si') : 'No';
+          else obj[name] = el.value;
+        });
+        return obj;
+      });
+    }
+
+    function buildPayload() {
+      return {
+        applications: collectData('tblAppsBody', ['name', 'server', 'type', 'nodes', 'cores_per_node', 'is_web_app', 'has_secure_app', 'sessions_users_per_month']),
+        databases: collectData('tblDbsBody', ['name', 'version', 'cores_per_node', 'nodes', 'os', 'related_app']),
+        sap_apps: collectData('tblSapBody', ['name', 'server', 'type', 'nodes', 'cores_str']),
+        microservices: collectData('tblMicroBody', ['name', 'server', 'type', 'nodes', 'cores_per_node', 'is_web_app', 'sessions_users_per_month']),
+        server_visibility_only: collectData('tblSVOnlyBody', ['name', 'nodes', 'cores_per_node', 'os']),
+        mobile_apps: collectData('tblMobileBody', ['name', 'type', 'platform', 'ide', 'active_agents_per_month']),
+      };
+    }
+
+    function fillTables(data) {
+      ['tblAppsBody','tblDbsBody','tblSapBody','tblMicroBody','tblSVOnlyBody','tblMobileBody'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+      });
+      (data.applications || []).forEach(addAppRow);
+      (data.databases || []).forEach(addDbRow);
+      (data.sap_apps || []).forEach(addSapRow);
+      (data.microservices || []).forEach(addMicroRow);
+      (data.server_visibility_only || []).forEach(addSVOnlyRow);
+      (data.mobile_apps || []).forEach(addMobileRow);
+      (data.thousandeyes_tests || []).forEach(addTERow);
+      if ((data.applications || []).length === 0) addAppRow();
+      if ((data.databases || []).length === 0) addDbRow();
+      if ((data.thousandeyes_tests || []).length === 0 && document.getElementById('tblTEBody').rows.length === 0) addTERow();
+      if ((data.server_visibility_only || []).length === 0 && document.getElementById('tblSVOnlyBody').rows.length === 0) addSVOnlyRow();
+    }
+
+    const TE_TEST_TYPES = ['Red', 'HTTP Server', 'Page Load', 'DNS Trace', 'DNS Server', 'BGP', 'Transaction', 'SIP Server', 'RTP Stream'];
+
+    function addTERow(data = {}) {
+      addRow('tblTEBody', [
+        { html: `<td><select name="test_type">${TE_TEST_TYPES.map(t => `<option value="${t}" ${(data.test_type || 'Red') === t ? 'selected' : ''}>${t}</option>`).join('')}</select></td>` },
+        { html: `<td><input type="number" name="interval_minutes" min="1" max="60" value="${data.interval_minutes ?? 5}" style="width:60px"></td>` },
+        { html: `<td><input type="number" name="num_agents" min="1" value="${data.num_agents ?? 1}" style="width:60px"></td>` },
+        { html: `<td><select name="agent_type"><option value="ENTERPRISE" ${(data.agent_type || 'ENTERPRISE') === 'ENTERPRISE' ? 'selected' : ''}>Enterprise</option><option value="CLOUD" ${(data.agent_type || '') === 'CLOUD' ? 'selected' : ''}>Cloud</option></select></td>` },
+        { html: `<td><input type="number" name="timeout_seconds" min="5" max="180" value="${data.timeout_seconds ?? 5}" style="width:60px"></td>` },
+        { html: `<td><button type="button" class="btn btn-secondary remove-row">Eliminar</button></td>` },
+      ]);
+    }
+
+    function collectTEData() {
+      return collectData('tblTEBody', ['test_type', 'interval_minutes', 'num_agents', 'agent_type', 'timeout_seconds']);
+    }
+
+    document.getElementById('addApp').onclick = () => addAppRow();
+    document.getElementById('addTE').onclick = () => addTERow();
+    document.getElementById('addDb').onclick = () => addDbRow();
+    document.getElementById('addSap').onclick = () => addSapRow();
+    document.getElementById('addMicro').onclick = () => addMicroRow();
+    document.getElementById('addSVOnly').onclick = () => addSVOnlyRow();
+    document.getElementById('addMobile').onclick = () => addMobileRow();
+
+    document.getElementById('btnCalculate').onclick = async () => {
+      const payload = buildPayload();
+      try {
+        const r = await fetch(`${API}/calculate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const res = await r.json();
+        if (!res.success) throw new Error(res.error || 'Error en el cálculo');
+
+        const r2 = res.result || res;
+        document.getElementById('apmCores').textContent = r2.apm_cores?.toLocaleString() ?? 0;
+        document.getElementById('dbCores').textContent = r2.database_cores?.toLocaleString() ?? 0;
+        document.getElementById('sapCores').textContent = r2.sap_cores?.toLocaleString() ?? 0;
+        document.getElementById('microCores').textContent = r2.microservices_containers?.toLocaleString() ?? 0;
+        document.getElementById('svInstances').textContent = r2.server_visibility_instances?.toLocaleString() ?? 0;
+        document.getElementById('svOnlyCores').textContent = r2.server_visibility_only_cores?.toLocaleString() ?? 0;
+        document.getElementById('secureAppCores').textContent = r2.secure_app_cores?.toLocaleString() ?? 0;
+        document.getElementById('totalCores').textContent = r2.total_infrastructure_cores?.toLocaleString() ?? 0;
+        document.getElementById('rumPageviewsMonth').textContent = r2.rum_browser_pageviews_monthly?.toLocaleString() ?? 0;
+        document.getElementById('rumPageviewsYear').textContent = r2.rum_browser_pageviews_annual?.toLocaleString() ?? 0;
+        document.getElementById('rumBrowserUnits').textContent = r2.rum_browser_units ?? 0;
+        document.getElementById('rumMobileAgents').textContent = r2.rum_mobile_active_agents?.toLocaleString() ?? 0;
+        document.getElementById('rumMobileUnits').textContent = r2.rum_mobile_units ?? 0;
+        document.getElementById('results').classList.remove('hidden');
+        document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    };
+
+    document.getElementById('btnCalculateTE').onclick = async () => {
+      const payload = { thousandeyes_tests: collectTEData() };
+      try {
+        const r = await fetch(`${API}/calculate-te`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const res = await r.json();
+        if (!res.success) throw new Error(res.error || 'Error en el cálculo');
+        const r2 = res.result;
+        document.getElementById('teTotalUnits').textContent = (r2.total_units || 0).toLocaleString();
+        const detail = document.getElementById('teTestsDetail');
+        if (r2.tests && r2.tests.length) {
+          detail.innerHTML = '<table><thead><tr><th>Prueba</th><th>Tipo</th><th>Intervalo</th><th>Agentes</th><th>Unidades</th></tr></thead><tbody>' +
+            r2.tests.map(t => `<tr><td>${t.test_type}</td><td>${t.agent_type}</td><td>${t.interval_minutes} min</td><td>${t.num_agents}</td><td>${t.units}</td></tr>`).join('') +
+            '</tbody></table>';
+        } else {
+          detail.innerHTML = '';
+        }
+        document.getElementById('resultsTE').classList.remove('hidden');
+        document.getElementById('resultsTE').scrollIntoView({ behavior: 'smooth' });
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    };
+
+    document.getElementById('excelFile').onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const r = await fetch(`${API}/parse-excel`, { method: 'POST', body: fd });
+        const res = await r.json();
+        if (!res.success) throw new Error(res.error || 'Error al parsear Excel');
+        fillTables(res.data);
+        alert('Datos cargados desde Excel. Revisa y edita si es necesario, luego calcula.');
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+      e.target.value = '';
+    };
+
+    // Inicializar con datos por defecto
+    addAppRow({ name: 'Ejemplo 1', server: 'Jboss 7', type: 'Java', nodes: 4, cores_per_node: 8, is_web_app: 'Si', sessions_users_per_month: '2000 usuarios' });
+    addDbRow({ name: 'Oracle', version: '11G', cores_per_node: 12, nodes: 2, os: 'RHEL 7', related_app: 'Ejemplo-1' });
+    addDbRow({ name: 'SQL Server', version: '2016', cores_per_node: 8, nodes: 1, os: 'Windows Server 2016', related_app: 'Ejemplo 2' });
+    addTERow({ test_type: 'Red', interval_minutes: 5, num_agents: 3, agent_type: 'ENTERPRISE', timeout_seconds: 5 });
+  </script>
+</body>
+</html>
